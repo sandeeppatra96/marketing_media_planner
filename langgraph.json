@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./src/marketing_planner/graph.py:graph"
+  },
+  "env": ".env"
+}

@@ -1,0 +1,15 @@
+mark
+MarketingMediaPlanner.egg-info
+.langgraph_api
+# Distribution / packaging
+*.egg-info/
+*.egg
+src/MarketingMediaPlanner/__pycache__/
+*.py[cod]
+*$py.class
+**/__pycache__/
+# LangGraph cache
+.langgraph_api/
+*.pyc
+*.pckl
+.env

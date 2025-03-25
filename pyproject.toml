@@ -1,0 +1,55 @@
+[project]
+name = "MarketingMediaPlanner"
+version = "0.0.1"
+description = "An AI system that takes a business website URL and provides marketing insights"
+authors = [
+    { name = "Sandeep Patra", email = "sandeeppatra96@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.19",
+    "langchain-openai>=0.1.22",
+    "langchain-anthropic>=0.1.23",
+    "langchain>=0.2.14",
+    "langchain-fireworks>=0.1.7",
+    "python-dotenv>=1.0.1",
+    "langgraph-cli[inmem]>=0.1.79",
+    "langchain-community>=0.2.13",
+    "langmem>=0.0.16"
+]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.11.1", "ruff>=0.6.1", "pytest-asyncio"]
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["marketing_planner"]
+[tool.setuptools.package-dir]
+"marketing_planner" = "src/marketing_planner"
+"langgraph.templates.marketing_planner" = "src/marketing_planner"
+
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.ruff]
+lint.select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "D",    # pydocstyle
+    "D401", # First line should be in imperative mood
+    "T201",
+    "UP",
+]
+include = ["*.py", "*.pyi", "*.ipynb"]
+lint.ignore = ["UP006", "UP007", "UP035", "D417", "E501"]
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "UP"]
+"ntbk/*" = ["D", "UP", "T201"]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
