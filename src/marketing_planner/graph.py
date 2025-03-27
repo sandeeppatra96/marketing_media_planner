@@ -370,7 +370,6 @@ async def process_user_input(
         }
 
 
-
 def route_after_agent(
     state: EnhancedState,
 ) -> Literal["reflect", "tools", "process_user_input", "call_agent_model", "__end__"]:
@@ -387,9 +386,15 @@ def route_after_agent(
     if last_message.tool_calls:
         tool_name = last_message.tool_calls[0]["name"]
         
-        # Check for memory tool loop
+        # Immediately prevent memory tool calls for simple greetings/short messages
+        if len(state.messages) > 0 and isinstance(state.messages[-2], HumanMessage):
+            user_message = state.messages[-2].content
+            if len(user_message.split()) < 3 and tool_name in ["ManageMemory", "SearchMemory"]:
+                return "call_agent_model"  # Skip memory operations for short messages
+        
+        # Stricter memory tool loop detection - check last 3 messages instead of 5
         memory_tool_calls = 0
-        for idx in range(min(5, len(state.messages))):
+        for idx in range(min(3, len(state.messages))):
             if idx >= len(state.messages):
                 break
                 
@@ -399,17 +404,15 @@ def route_after_agent(
                     if tool_call["name"] in ["ManageMemory", "SearchMemory"]:
                         memory_tool_calls += 1
         
-        # If we've seen too many memory tool calls in a row, 
-        # force the agent back to the main path
-        if memory_tool_calls >= 3 and tool_name in ["ManageMemory", "SearchMemory"]:
+        # If we've seen any memory tool calls in the last 3 messages, 
+        # force the agent back to the main path for memory tools
+        if memory_tool_calls > 0 and tool_name in ["ManageMemory", "SearchMemory"]:
             return "call_agent_model"
             
         if tool_name == "MarketingPlan":
             return "reflect"
         elif tool_name == "AskUserInput":
-            # The agent is asking the user a question
-            # We don't route to process_user_input yet because we need to wait for the user's response
-            return "__end__"  # Pause execution and wait for user input
+            return "__end__"
         else:
             return "tools"
     else:
