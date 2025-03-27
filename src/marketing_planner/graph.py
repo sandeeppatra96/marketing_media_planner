@@ -113,6 +113,9 @@ async def call_agent_model(
     # Add research status and user preferences to the prompt
     if research_status or user_prefs:
         p += f"\n{research_status}{user_prefs}"
+    
+    # Add specific instructions to avoid memory tool loops
+    p += "\n\nIMPORTANT: Use memory tools sparingly. Only create or update memories for truly important business insights or user preferences. Do not create redundant memories or call memory tools unnecessarily. Focus primarily on using Search, ScrapeWebsite, and AnalyzeWebsite tools to gather information for the marketing plan."
 
     if not state.messages:
         messages = [HumanMessage(content=p)]
@@ -122,19 +125,27 @@ async def call_agent_model(
     # Initialize the raw model with the provided configuration and bind the tools
     raw_model = init_model(config)
     
+    # Determine which tools to include
+    # If we've made more than 3 memory tool calls in a row, temporarily exclude memory tools
+    memory_tool_calls = 0
+    for idx in range(min(5, len(state.messages))):
+        if idx >= len(state.messages):
+            break
+            
+        msg = state.messages[-(idx+1)]
+        if hasattr(msg, 'tool_calls') and msg.tool_calls:
+            for tool_call in msg.tool_calls:
+                if tool_call["name"] in ["ManageMemory", "SearchMemory"]:
+                    memory_tool_calls += 1
+    
+    tools = [scrape_website, search, analyze_website, marketing_plan_tool, ask_user_input_tool]
+    
+    # Only include memory tools if we haven't seen too many consecutive memory calls
+    if memory_tool_calls < 3:
+        tools.extend([manage_memory_tool, search_memory_tool])
+    
     # Include all tools including the AskUserInput tool
-    model = raw_model.bind_tools(
-        [
-            scrape_website, 
-            search, 
-            analyze_website, 
-            manage_memory_tool,
-            search_memory_tool,
-            marketing_plan_tool,
-            ask_user_input_tool
-        ], 
-        tool_choice="any"
-    )
+    model = raw_model.bind_tools(tools, tool_choice="any")
     
     response = cast(AIMessage, await model.ainvoke(messages))
 
@@ -178,6 +189,7 @@ async def call_agent_model(
         "last_question_context": user_question["context"] if asking_user and "context" in user_question else None,
         "loop_step": state.loop_step + 1,
     }
+
 
 class MarketingPlanIsSatisfactory(BaseModel):
     """Validate whether the current marketing plan is satisfactory and complete."""
@@ -358,6 +370,7 @@ async def process_user_input(
         }
 
 
+
 def route_after_agent(
     state: EnhancedState,
 ) -> Literal["reflect", "tools", "process_user_input", "call_agent_model", "__end__"]:
@@ -373,6 +386,24 @@ def route_after_agent(
 
     if last_message.tool_calls:
         tool_name = last_message.tool_calls[0]["name"]
+        
+        # Check for memory tool loop
+        memory_tool_calls = 0
+        for idx in range(min(5, len(state.messages))):
+            if idx >= len(state.messages):
+                break
+                
+            msg = state.messages[-(idx+1)]
+            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                for tool_call in msg.tool_calls:
+                    if tool_call["name"] in ["ManageMemory", "SearchMemory"]:
+                        memory_tool_calls += 1
+        
+        # If we've seen too many memory tool calls in a row, 
+        # force the agent back to the main path
+        if memory_tool_calls >= 3 and tool_name in ["ManageMemory", "SearchMemory"]:
+            return "call_agent_model"
+            
         if tool_name == "MarketingPlan":
             return "reflect"
         elif tool_name == "AskUserInput":
@@ -383,7 +414,6 @@ def route_after_agent(
             return "tools"
     else:
         return "tools"
-
 
 def route_after_user_input(
     state: EnhancedState,

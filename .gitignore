@@ -13,3 +13,4 @@ src/MarketingMediaPlanner/__pycache__/
 *.pyc
 *.pckl
 .env
+.venv
